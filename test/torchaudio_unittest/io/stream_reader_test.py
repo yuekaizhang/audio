@@ -20,7 +20,14 @@ from torchaudio_unittest.common_utils import (
 
 if is_ffmpeg_available():
     from torchaudio.io import StreamReader, StreamWriter
-    from torchaudio.io._stream_reader import ChunkTensor, SourceAudioStream, SourceStream, SourceVideoStream
+    from torchaudio.io._stream_reader import (
+        ChunkTensor,
+        OutputAudioStream,
+        OutputVideoStream,
+        SourceAudioStream,
+        SourceStream,
+        SourceVideoStream,
+    )
 
 
 @skipIfNoFFmpeg
@@ -59,13 +66,14 @@ class ChunkTensorTest(TorchaudioTestCase):
         w.add_audio_stream(8000, 2)
         with w.open():
             w.write_audio_chunk(0, c)
+            w.write_audio_chunk(0, c, c.pts)
 
 
 ################################################################################
 # Helper decorator and Mixin to duplicate the tests for fileobj
 _media_source = parameterized_class(
     ("test_type",),
-    [("str",), ("fileobj",), ("tensor",)],
+    [("str",), ("fileobj",)],
     class_name_func=lambda cls, _, params: f'{cls.__name__}_{params["test_type"]}',
 )
 
@@ -83,10 +91,6 @@ class _MediaSourceMixin:
             self.src = path
         elif self.test_type == "fileobj":
             self.src = open(path, "rb")
-        elif self.test_type == "tensor":
-            with open(path, "rb") as fileobj:
-                data = fileobj.read()
-            self.src = torch.frombuffer(data, dtype=torch.uint8)
         return self.src
 
     def tearDown(self):
@@ -239,6 +243,81 @@ class StreamReaderInterfaceTest(_MediaSourceMixin, TempDirMixin, TorchaudioTestC
             ),
         ]
         output = [s.get_src_stream_info(i) for i in range(6)]
+        assert expected == output
+
+    def test_output_info(self):
+        s = StreamReader(self.get_src())
+
+        s.add_audio_stream(-1)
+        s.add_audio_stream(-1, filter_desc="aresample=8000")
+        s.add_audio_stream(-1, filter_desc="aformat=sample_fmts=s16p")
+        s.add_video_stream(-1)
+        s.add_video_stream(-1, filter_desc="fps=10")
+        s.add_video_stream(-1, filter_desc="format=rgb24")
+        s.add_video_stream(-1, filter_desc="scale=w=160:h=90")
+        expected = [
+            OutputAudioStream(
+                source_index=4,
+                filter_description="anull",
+                media_type="audio",
+                format="fltp",
+                sample_rate=16000.0,
+                num_channels=2,
+            ),
+            OutputAudioStream(
+                source_index=4,
+                filter_description="aresample=8000",
+                media_type="audio",
+                format="fltp",
+                sample_rate=8000.0,
+                num_channels=2,
+            ),
+            OutputAudioStream(
+                source_index=4,
+                filter_description="aformat=sample_fmts=s16p",
+                media_type="audio",
+                format="s16p",
+                sample_rate=16000.0,
+                num_channels=2,
+            ),
+            OutputVideoStream(
+                source_index=3,
+                filter_description="null",
+                media_type="video",
+                format="yuv420p",
+                width=480,
+                height=270,
+                frame_rate=30000 / 1001,
+            ),
+            OutputVideoStream(
+                source_index=3,
+                filter_description="fps=10",
+                media_type="video",
+                format="yuv420p",
+                width=480,
+                height=270,
+                frame_rate=10,
+            ),
+            OutputVideoStream(
+                source_index=3,
+                filter_description="format=rgb24",
+                media_type="video",
+                format="rgb24",
+                width=480,
+                height=270,
+                frame_rate=30000 / 1001,
+            ),
+            OutputVideoStream(
+                source_index=3,
+                filter_description="scale=w=160:h=90",
+                media_type="video",
+                format="yuv420p",
+                width=160,
+                height=90,
+                frame_rate=30000 / 1001,
+            ),
+        ]
+        output = [s.get_out_stream_info(i) for i in range(s.num_out_streams)]
         assert expected == output
 
     def test_id3tag(self):

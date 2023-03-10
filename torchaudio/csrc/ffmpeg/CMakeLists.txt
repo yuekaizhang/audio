@@ -12,15 +12,14 @@ set(
   stream_reader/buffer/common.cpp
   stream_reader/buffer/chunked_buffer.cpp
   stream_reader/buffer/unchunked_buffer.cpp
-  stream_reader/decoder.cpp
   stream_reader/sink.cpp
   stream_reader/stream_processor.cpp
   stream_reader/stream_reader.cpp
-  stream_reader/stream_reader_wrapper.cpp
-  stream_reader/stream_reader_binding.cpp
-  stream_reader/stream_reader_tensor_binding.cpp
+  stream_writer/encode_process.cpp
+  stream_writer/encoder.cpp
   stream_writer/stream_writer.cpp
-  stream_writer/stream_writer_binding.cpp
+  stream_writer/tensor_converter.cpp
+  compat.cpp
   utils.cpp
   )
 
@@ -41,10 +40,8 @@ torchaudio_library(
 if (BUILD_TORCHAUDIO_PYTHON_EXTENSION)
   set(
     ext_sources
-    pybind/typedefs.cpp
+    pybind/fileobj.cpp
     pybind/pybind.cpp
-    pybind/stream_reader.cpp
-    pybind/stream_writer.cpp
     )
   torchaudio_extension(
     _torchaudio_ffmpeg
